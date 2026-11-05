@@ -1,0 +1,43 @@
+services:
+  opencode:
+    image: ${OPENCODE_IMAGE_NAME}:${OPENCODE_IMAGE_VERSION-latest}
+    container_name: opencode
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+    command:
+      - web
+      - --hostname
+      - 0.0.0.0
+      - --port
+      - "3000"
+      - --log-level
+      - DEBUG
+      - --print-logs
+    volumes:
+      - opencode:/root/.local/share/opencode/
+      # - ${HOME_DIR}/project-foo:/workspace/project-foo
+      # - ${HOME_DIR}/project-bar:/workspace/project-bar
+    environment:
+      OPENCODE_ENABLE_EXA: true
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTP_PROXY}
+      http_proxy: ${HTTP_PROXY}
+      https_proxy: ${HTTP_PROXY}
+      NO_PROXY: ${NO_PROXY}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-Y", "off", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  opencode:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ../volumes/opencode

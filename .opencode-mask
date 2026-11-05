@@ -1,0 +1,4 @@
+.direnv
+volumes/
+docker-compose/.env
+opencode-acp/.acp.env

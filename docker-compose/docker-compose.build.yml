@@ -1,0 +1,7 @@
+---
+services:
+  opencode:
+    build:
+      context: ../opencode
+      tags:
+        - "${OPENCODE_IMAGE_NAME}:${OPENCODE_IMAGE_VERSION-latest}"
