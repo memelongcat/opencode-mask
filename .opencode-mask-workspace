@@ -1,0 +1,4 @@
+k3s-example/.git/
+k3s-example/.direnv/
+k3s-example/.kube/
+k3s-example/repo_secrets.md

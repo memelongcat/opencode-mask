@@ -14,8 +14,10 @@ services:
       - --log-level
       - DEBUG
       - --print-logs
+    working_dir: /workspace
     volumes:
       - opencode:/root/.local/share/opencode/
+      - ../.opencode-mask-workspace:/workspace/.opencode-mask
       # - ${HOME_DIR}/project-foo:/workspace/project-foo
       # - ${HOME_DIR}/project-bar:/workspace/project-bar
     environment:

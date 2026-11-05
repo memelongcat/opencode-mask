@@ -36,7 +36,10 @@ docker-compose/.env
 opencode-acp/.acp.env
 ```
 
-The rules are applied once, at container start, relative to the container's working directory (`$PWD`). The ACP launcher mounts your project at the same absolute path and sets it as the working directory, so `.opencode-mask` in the project root works as expected. The web service does not set a working directory itself — it is primarily intended for building the image and configuring providers.
+The rules are applied once, at container start, relative to the container's working directory (`$PWD`): the entrypoint reads `.opencode-mask` from that directory, so `working_dir` determines which mask file is used.
+
+- **Web mode**: the compose service sets `working_dir: /workspace` and bind-mounts `.opencode-mask-workspace` to `/workspace/.opencode-mask`. Mask paths are therefore relative to `/workspace`, that is, to the mounted project directories (`project-foo/.env`, `project-bar/.git/`, ...).
+- **ACP mode**: the launcher mounts your project at the same absolute path and sets it as the working directory, so the project's own `.opencode-mask` is applied.
 
 ### Limitations
 
@@ -53,7 +56,8 @@ The mask file is not a full `.gitignore` implementation:
 | `docker-compose/` | Builds the image (`docker-compose.build.yml`) and runs OpenCode in web mode. Providers are added through the web UI. |
 | `opencode/` | `Dockerfile` (based on `ghcr.io/anomalyco/opencode:1.19.5` plus `tini` and `util-linux-misc`) and `mask-entrypoint.sh`. |
 | `opencode-acp/` | `.acp.env` and `opencode-docker-acp.sh` for running the container in ACP mode, used for editor/IDE integration. A Docker volume keeps provider settings and chat history. |
-| `.opencode-mask` | Example mask file at the repository root. |
+| `.opencode-mask` | Mask file for ACP mode / a project root (the example is for this repository). |
+| `.opencode-mask-workspace` | Mask file for web mode, mounted as `/workspace/.opencode-mask`; paths are relative to `/workspace`. |
 | `docker-compose/.env.example`, `opencode-acp/.acp.env.example` | Templates copied to `.env` / `.acp.env` by the `Makefile` (the real files are git-ignored). |
 | `Makefile` | Builds the image, runs web mode, installs the ACP launcher script. |
 | `shell.nix`, `.envrc` | Nix development shell. |
@@ -61,14 +65,26 @@ The mask file is not a full `.gitignore` implementation:
 ## Web mode
 
 1. `make compose_env` creates `docker-compose/.env` from `.env.example` (it is also created automatically as a dependency of the other targets). Adjust `HOME_DIR`, `HTTP_PROXY`/`NO_PROXY` and the image name/version.
-2. To expose a project to the container, uncomment and edit the volume entries in `docker-compose/docker-compose.yml`:
+2. The web mode scenario is comparing two projects and porting changes from one to the other, so uncomment both project mounts in `docker-compose/docker-compose.yml`:
 
    ```yaml
    volumes:
      - ${HOME_DIR}/project-foo:/workspace/project-foo
+     - ${HOME_DIR}/project-bar:/workspace/project-bar
    ```
 
-3. Build and start:
+3. Define masking rules in `.opencode-mask-workspace` in the repository root — paths are relative to `/workspace`:
+
+   ```
+   project-foo/.env
+   project-bar/.git/
+   ```
+
+   The file is mounted as `/workspace/.opencode-mask`, so the entrypoint applies it at container start.
+
+   **Note:** `.opencode-mask-workspace` must exist before `make compose_up`; if it is missing, Docker creates a directory at the mount target and masking silently does not apply.
+
+4. Build and start:
 
    ```
    make compose_up
@@ -80,7 +96,7 @@ The mask file is not a full `.gitignore` implementation:
    make all
    ```
 
-4. Open http://localhost:3000 and add providers through the web UI.
+5. Open http://localhost:3000 and add providers through the web UI.
 
 ## ACP mode (editors / IDEs)
 
@@ -124,8 +140,9 @@ Extra arguments can be passed through `ARGS`, for example `make compose_up ARGS=
 
 If the agent must reach the internet through a proxy running on the host, the proxy's listening address must be reachable from inside the Docker container:
 
-- make the proxy client listen on `0.0.0.0` (not `127.0.0.1`);
-- specify the host's network interface address, or the address of the tun interface created by the proxy client (for example `198.18.0.1` used in the examples), in `HTTP_PROXY`/`HTTPS_PROXY` in `docker-compose/.env` and/or `opencode-acp/.acp.env`;
+- preferred: bind the listener to a virtual interface the container can reach, or reuse the listener already created by your proxy client (for example a tun interface — the `198.18.0.1` address used in the examples above). Specify that address in `HTTP_PROXY`/`HTTPS_PROXY` in `docker-compose/.env` and/or `opencode-acp/.acp.env`;
+- a listener bound to `127.0.0.1` is not reachable from the container at all;
+- listening on `0.0.0.0` also works, but is not recommended: without a properly configured firewall it exposes the proxy to the whole local network;
 - add local addresses to `NO_PROXY` (for example `localhost,127.0.0.1`).
 
 ## Development (Nix)
