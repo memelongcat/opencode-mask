@@ -11,5 +11,6 @@ exec docker run --rm -i \
   --volume "$PWD:$PWD" \
   --workdir "$PWD" \
   --env-file "$ENV_FILE" \
+  --name "opencode-acp-$(basename $PWD)" \
   "$OPENCODE_IMAGE" \
   --print-logs acp
